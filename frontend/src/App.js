@@ -1,5 +1,5 @@
 import './App.css';
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import Container from '@material-ui/core/Container';
 import Grid from '@material-ui/core/Grid';
 import TextField from '@material-ui/core/TextField';
@@ -26,23 +26,42 @@ const useStyles = makeStyles((theme) => ({
     }
 }))
 
+
 function App() {
     const {control, handleSubmit, reset} = useForm();
-    const classes = useStyles()
+    const classes = useStyles();
 
     useEffect(() => {
-        document.title = 'Indeed Bot'
+        document.title = 'Beep beep'
     }, [])
 
     const onSubmit = (data) => {
-        fetch('http://localhost:8000/run ', {
-            body: JSON.stringify(data),
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            method: "POST",
-        }).then(r => r.json()).then(() => reset())
+        const socketUrl = 'ws://' + window.location.hostname + ':8000/ws/start_instance';
+        let socket = new WebSocket(socketUrl);
+
+        socket.onopen = () => {
+            console.log('Connection initiated.')
+            socket.send(JSON.stringify({
+                data: {
+                    event: 'start',
+                    body: data,
+                }
+            }));
+            reset();
+        };
+
+        socket.onmessage = (evt) => {
+            const data = JSON.parse(evt.data);
+
+            if (data.event === 'code') {
+                const code = prompt('Enter the code you\'ve received.');
+                socket.send(JSON.stringify({
+                    data: {
+                        code,
+                    }
+                }));
+            }
+        }
     }
 
     const formControls = [

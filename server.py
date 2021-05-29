@@ -1,9 +1,9 @@
-from fastapi import FastAPI, BackgroundTasks, WebSocket, HTTPException
+from fastapi import FastAPI, BackgroundTasks, WebSocket
 from pydantic import BaseModel
 # from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from utils import ConnectionManager
 import indeed
-from typing import List
 
 
 class IndeedFormData(BaseModel):
@@ -28,39 +28,20 @@ app.add_middleware(
 )
 
 
-@app.post('/run/')
-def home_page(data: IndeedFormData, background_tasks: BackgroundTasks):
-    background_tasks.add_task(indeed.start_applying, data.email, data.password, data.what, data.where)
-
-    return {
-        'message': 'Added a new task.',
-    }
-
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
+# @app.post('/run/')
+# def home_page(data: IndeedFormData, background_tasks: BackgroundTasks):
+#     background_tasks.add_task(indeed.start_applying, data.email, data.password, data.what, data.where)
+#
+#     return {
+#         'message': 'Added a new task.',
+#     }
 
 
 manager = ConnectionManager()
 
 
-@app.websocket('/ws/automate/{id}')
-async def handle_automate(socket: WebSocket, id: str):
+@app.websocket('/ws/start_instance')
+async def handle_automate(socket: WebSocket):
     await manager.connect(socket)
 
     async def get_2fa_code():
@@ -72,17 +53,19 @@ async def handle_automate(socket: WebSocket, id: str):
 
     while True:
         data = await socket.receive_json()
-        action = data.get('action', None)
-        data = data.get('data', None)
 
-        if not all([action, data]):
+        data = data.get('data', None)
+        event = data.get('event', None)
+
+        if not all([event, data]):
             await socket.close(1002)
 
-        if action == 'start':
-            email, password = data.get('email'), data.get('password')
-            what, where = data.get('what'), data.get('where')
+        if event == 'start':
+            body = data.get('body')
+            email, password = body.get('email'), body.get('password')
+            what, where = body.get('what'), body.get('where')
 
             driver = indeed.setup_webdriver()
-            procedure = indeed.IndeedAutomationProcedure(driver, id=id)
+            procedure = indeed.IndeedAutomationProcedure(driver)
             await procedure.start(what=what, where=where, email=email, password=password, get_2fa_code=get_2fa_code)
 

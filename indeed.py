@@ -2,16 +2,11 @@ import argparse
 import logging
 import re
 import sys
-import time
-import itertools as it
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse, urlunparse, urlencode
-import selectors
-from websockets import connect, WebSocketURI
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
-from fastapi.websockets import WebSocket
 
 from consts import (
     INDEED_LOGIN_URL,
@@ -24,14 +19,12 @@ from consts import (
     WHERE_INPUT_LOCATOR,
     WHAT_INPUT_LOCATOR,
     FILTERS_INPUT_LOCATOR,
-    CAPTCHA_MESSAGE_LOCATOR,
     JOB_CARD_LOCATORS,
     APPLY_BTN_LOCATOR,
     CONTINUE_BTN_LOCATOR,
     STEPPER_LOCATOR,
     TWO_FACTOR_FORM_LOCATOR,
     TWO_FACTOR_INPUT_LOCATOR,
-    PER_PAGE,
     ua,
     WithinDistance,
     STEPPER_PATTERN,
@@ -90,59 +83,9 @@ def switch_to_tab(driver: webdriver.Chrome, tab_num):
     driver.switch_to.window(driver.window_handles[tab_num])
 
 
-def get_login_form(driver: webdriver.Chrome):
-    return driver.find_element(*LOGIN_FORM_LOCATOR)
-
-
-def get_credential_inputs(driver: webdriver.Chrome):
-    form = get_login_form(driver)
-    email_input = form.find_element(*EMAIL_INPUT_LOCATOR)
-    password_input = form.find_element(*PASSWORD_INPUT_LOCATOR)
-    login_btn = form.find_element(*LOGIN_BTN_LOCATOR)
-
-    return email_input, password_input, login_btn
-
-
-def get_what_where_form(driver: webdriver.Chrome):
-    return driver.find_element(*WHAT_WHERE_FORM_LOCATOR)
-
-
-def get_what_where_inputs(driver: webdriver.Chrome):
-    form = get_what_where_form(driver)
-    what_input = form.find_element(*WHAT_INPUT_LOCATOR)
-    where_input = form.find_element(*WHERE_INPUT_LOCATOR)
-    find_btn = form.find_element_by_tag_name('button')
-
-    return what_input, where_input, find_btn
-
-
 def clear_input(input):
     input.get_attribute('value')
     input.send_keys(Keys.CONTROL + 'A' + Keys.DELETE)
-
-
-def login(driver: webdriver.Chrome, email, password):
-    email_input, password_input, login_btn = get_credential_inputs(driver)
-
-    email_input.clear()
-    email_input.send_keys(email)
-
-    password_input.clear()
-    password_input.send_keys(password)
-
-    login_btn.click()
-
-
-def job_search(driver: webdriver.Chrome, what, where):
-    what_input, where_input, find_btn = get_what_where_inputs(driver)
-
-    clear_input(what_input)
-    what_input.send_keys(what)
-
-    clear_input(where_input)
-    where_input.send_keys(where)
-
-    find_btn.click()
 
 
 def filters_manager(driver):
@@ -241,92 +184,12 @@ def close_current_tab(driver: webdriver.Chrome):
     """)
 
 
-def get_2fa_form(driver: webdriver.Chrome):
-    try:
-        form = driver.find_element('pass-FormContent')
-    except NoSuchElementException:
-        form = None
-
-    return form
-
-
-def handle_2fa_form(form):
-    form_input = form.find_element(TWO_FACTOR_FORM_LOCATOR)
-
-
 def get_many_with_possible_locators(driver, locators):
     for locator in locators:
         elements = driver.find_elements(*locator)
 
         if elements:
             return elements
-
-
-def start_applying(email, password, what, where):
-    chrome = setup_webdriver()
-    navigate_to_page = paginated_search_manager(chrome, what, where)
-    current_page = 1
-
-    navigate_to_indeed_login_page(chrome)
-
-    try:
-        login(chrome, email, password)
-    except NoSuchElementException:
-        chrome.find_element(*CAPTCHA_MESSAGE_LOCATOR)
-        sys.exit({
-            'message': 'You need to change the proxy.'
-        })
-
-    try:
-        input_elem = get_2fa_form(chrome)
-    except NoSuchElementException:
-        logging.info('No 2FA.')
-
-    job_search(chrome, what, where)
-    filter_by = filters_manager(chrome)
-    filter_by(WithinDistance.OF_100_MILES)
-
-    # If you don't use Indeed in USA, it redirects you to the local version of Indeed, handle this.
-    try:
-        invalid_location_anchor = chrome.find_element_by_class_name('invalid_location').find_element_by_tag_name(
-            'a')
-        invalid_location_anchor.click()
-    except NoSuchElementException:
-        logging.info('No regional restrictions found.')
-
-    while True:
-        if current_page != 1:
-            navigate_to_page(current_page)
-
-        job_cards = []
-        for locator in JOB_CARD_LOCATORS:
-            job_cards = chrome.find_elements(*locator)
-
-            if job_cards:
-                break
-
-        for job_card in job_cards:
-            if job_card.get_property('tagName').lower() == 'a':
-                href = job_card.get_attribute('href')
-            else:
-                href = job_card.find_element_by_tag_name('h2').find_element_by_tag_name('a').get_attribute('href')
-
-            open_in_new_tab(chrome, href)
-
-        total_tabs = PER_PAGE + 1
-        for i in range(1, total_tabs):
-            try:
-                apply_in(chrome)
-
-            except MissingInfoError:
-                pass
-
-            except NoSuchElementException:
-                pass
-
-            switch_to_tab(chrome, i)
-
-        current_page += 1
 
 
 if __name__ == '__main__':
@@ -339,12 +202,9 @@ if __name__ == '__main__':
 
     assert all([args.email, args.password, args.what, args.where]), 'You didn\'t provide all the necessary fields.'
 
-    start_applying(args.email, args.password, args.what, args.where)
-
 
 class SiteAutomationProcedure:
-    def __init__(self, id, *args, **kwargs):
-        self.id = id
+    def __init__(self, *args, **kwargs):
         self.uses_2fa = None
         self.args = args
         self.kwargs = kwargs
@@ -356,6 +216,9 @@ class SiteAutomationProcedure:
         pass
 
     def get_2fa_form(self):
+        pass
+
+    def handle_overlays(self):
         pass
 
     def handle_recommending_different_region(self):
@@ -371,7 +234,6 @@ class SiteAutomationProcedure:
 class IndeedAutomationProcedure(SiteAutomationProcedure):
     def __init__(self, driver, *args, **kwargs):
         self.driver = driver
-
         super().__init__(**kwargs)
 
     def navigate_to_login_page(self):
@@ -420,7 +282,10 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
             logging.info('No regional restrictions found.')
 
     def job_search(self, what, where):
-        what_input, where_input, find_btn = get_what_where_inputs(self.driver)
+        form = self.driver.find_element(*WHAT_WHERE_FORM_LOCATOR)
+        what_input = form.find_element(*WHAT_INPUT_LOCATOR)
+        where_input = form.find_element(*WHERE_INPUT_LOCATOR)
+        find_btn = form.find_element_by_tag_name('button')
 
         clear_input(what_input)
         what_input.send_keys(what)
@@ -438,9 +303,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
         self.login(email, password)
 
         if get_2fa_code:
-            print('HERE')
             code = await get_2fa_code()
-            print('HERE2')
             self.on_code(code)
 
         self.job_search(what, where)
@@ -452,7 +315,6 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
         while True:
             navigate_to_page(current_page)
             current_page += 1
-
             job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS)
 
             for job_card in job_cards:
@@ -468,10 +330,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
                 try:
                     apply_in(self.driver)
 
-                except MissingInfoError:
-                    pass
-
-                except NoSuchElementException:
+                except (MissingInfoError, NoSuchElementException):
                     pass
 
                 switch_to_tab(self.driver, i)
