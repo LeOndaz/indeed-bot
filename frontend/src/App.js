@@ -1,5 +1,5 @@
 import './App.css';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect} from 'react';
 import Container from '@material-ui/core/Container';
 import Grid from '@material-ui/core/Grid';
 import TextField from '@material-ui/core/TextField';
@@ -32,7 +32,7 @@ function App() {
     const classes = useStyles();
 
     useEffect(() => {
-        document.title = 'Beep beep'
+        document.title = 'Beep beep';
     }, [])
 
     const onSubmit = (data) => {
@@ -40,7 +40,7 @@ function App() {
         let socket = new WebSocket(socketUrl);
 
         socket.onopen = () => {
-            console.log('Connection initiated.')
+            console.info('Connection initiated.');
             socket.send(JSON.stringify({
                 data: {
                     event: 'start',

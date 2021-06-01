@@ -1,12 +1,14 @@
 import argparse
 import logging
 import re
-import sys
 from pathlib import Path
+from inspect import iscoroutinefunction
 from urllib.parse import parse_qs, urlparse, urlunparse, urlencode
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as ec
 
 from consts import (
     INDEED_LOGIN_URL,
@@ -25,13 +27,14 @@ from consts import (
     STEPPER_LOCATOR,
     TWO_FACTOR_FORM_LOCATOR,
     TWO_FACTOR_INPUT_LOCATOR,
-    ua,
+    CONTACT_FORM_FIRST_NAME_LOCATOR,
+    CONTACT_FORM_LAST_NAME_LOCATOR,
     WithinDistance,
     STEPPER_PATTERN,
+    ua,
 )
 from errors import (
     MissingInfoError,
-    NonExistentPageError
 )
 
 logger = logging.getLogger(__file__)
@@ -53,7 +56,7 @@ def setup_webdriver():
     options.add_experimental_option('useAutomationExtension', False)
 
     # enable proxy-ing
-    # options.add_argument('--proxy-server=209.127.191.180:9279')
+    options.add_argument('--proxy-server=209.127.191.180:9279')
 
     # save profile data
     # options.add_argument(f"user-data-dir={PROFILE_PATH}")
@@ -131,14 +134,22 @@ def paginated_search_manager(driver: webdriver.Chrome, what, where):
 
 def handle_current_step(driver: webdriver.Chrome):
     def next_step():
-        continue_btn = driver.find_element(*CONTINUE_BTN_LOCATOR)
+        continue_btn = WebDriverWait(driver, 5).until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
         continue_btn.click()
 
-    def on_missing_contact_info():
-        raise MissingInfoError()
+    def contact_info_handler():
+        try:
+            first_name = driver.find_element(*CONTACT_FORM_FIRST_NAME_LOCATOR).get_attribute('value')
+            last_name = driver.find_element(*CONTACT_FORM_LAST_NAME_LOCATOR).get_attribute('value')
+
+            if all([first_name, last_name]):
+                return next_step()
+
+        except NoSuchElementException:
+            raise MissingInfoError()
 
     url_handler_map = {
-        'contact-info': (on_missing_contact_info,),
+        'contact-info': (contact_info_handler,),
         'resume': (next_step,),
         'work-experience': (next_step,),
         'documents': (next_step,),
@@ -160,7 +171,7 @@ def apply_in(driver: webdriver.Chrome):
     apply_btn.click()
 
     stepper = driver.find_element(*STEPPER_LOCATOR)
-    text = stepper.get_property('innerText').strip()
+    text = stepper.text.strip()
     match = re.match(STEPPER_PATTERN, text)
 
     if match:
@@ -192,17 +203,6 @@ def get_many_with_possible_locators(driver, locators):
             return elements
 
 
-if __name__ == '__main__':
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--email', '-e', metavar='email', dest='email')
-    arg_parser.add_argument('--pwd', '-p', metavar='password', dest='password')
-    arg_parser.add_argument('--what', '-wt', metavar='what', dest='what')
-    arg_parser.add_argument('--where', '-wr', metavar='where', dest='where')
-    args = arg_parser.parse_args()
-
-    assert all([args.email, args.password, args.what, args.where]), 'You didn\'t provide all the necessary fields.'
-
-
 class SiteAutomationProcedure:
     def __init__(self, *args, **kwargs):
         self.uses_2fa = None
@@ -224,7 +224,7 @@ class SiteAutomationProcedure:
     def handle_recommending_different_region(self):
         pass
 
-    def on_code(self, code):
+    def on_code(self, form, code):
         pass
 
     def start(self, *args, **kwargs):
@@ -262,15 +262,13 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
         return form
 
-    def on_code(self, code):
-        form = self.get_2fa_form()
-        if form:
-            try:
-                form_input = form.find_element(*TWO_FACTOR_INPUT_LOCATOR)
-                form_input.send_keys(code)
-                form.find_element_by_tag_name('button').click()
-            except NoSuchElementException:
-                raise
+    def on_code(self, form, code):
+        try:
+            form_input = form.find_element(*TWO_FACTOR_INPUT_LOCATOR)
+            form_input.send_keys(code)
+            form.find_element_by_tag_name('button').click()
+        except NoSuchElementException:
+            raise
 
     def handle_recommending_different_region(self):
         try:
@@ -295,24 +293,32 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
         find_btn.click()
 
+    def filter(self):
+        filter_by = filters_manager(self.driver)
+        filter_by(WithinDistance.OF_100_MILES)
+
     async def start(self, email, password, what, where, get_2fa_code=None, *args, **kwargs):
         navigate_to_page = paginated_search_manager(self.driver, what, where)
+        total_tabs = 16  # 15 per page + 1
         current_page = 1
 
         self.navigate_to_login_page()
         self.login(email, password)
 
-        if get_2fa_code:
-            code = await get_2fa_code()
-            self.on_code(code)
+        form_2fa = self.get_2fa_form()
+        if form_2fa and get_2fa_code:
+            if iscoroutinefunction(get_2fa_code):
+                code = await get_2fa_code()
+            else:
+                code = get_2fa_code()
+
+            self.on_code(form_2fa, code)
 
         self.job_search(what, where)
         self.handle_recommending_different_region()
+        self.filter()
 
-        filter_by = filters_manager(self.driver)
-        filter_by(WithinDistance.OF_100_MILES)
-
-        while True:
+        while current_page < total_tabs:
             navigate_to_page(current_page)
             current_page += 1
             job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS)
@@ -325,17 +331,37 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
                 open_in_new_tab(self.driver, href)
 
-            total_tabs = 15 + 1
             for i in range(1, total_tabs):
                 try:
                     apply_in(self.driver)
-
                 except (MissingInfoError, NoSuchElementException):
                     pass
 
                 switch_to_tab(self.driver, i)
 
-# def start_applying_procedure(id, get_2fa_code, email, password, what, where):
-#     driver = setup_webdriver()
-#     procedure = IndeedAutomationProcedure(driver, id=id)
-#     procedure.start(email, password, what, where, get_2fa_code=get_2fa_code)
+            switch_to_tab(driver, 0)
+            for handle in driver.window_handles:
+                if handle != driver.current_window_handle:
+                    driver.close()
+
+
+if __name__ == '__main__':
+    import asyncio
+
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('--email', '-e', metavar='email', dest='email')
+    arg_parser.add_argument('--pwd', '-p', metavar='password', dest='password')
+    arg_parser.add_argument('--what', '-wt', metavar='what', dest='what')
+    arg_parser.add_argument('--where', '-wr', metavar='where', dest='where')
+    args = arg_parser.parse_args()
+
+    assert all([args.email, args.password, args.what, args.where]), 'You didn\'t provide all the necessary fields.'
+
+    driver = setup_webdriver()
+    procedure = IndeedAutomationProcedure(driver)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(procedure.start(args.email,
+                                            args.password,
+                                            args.what,
+                                            args.where,
+                                            lambda: input('Enter the code you\'ll receive on your mail shortly: ')))

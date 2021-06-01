@@ -27,16 +27,6 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-
-# @app.post('/run/')
-# def home_page(data: IndeedFormData, background_tasks: BackgroundTasks):
-#     background_tasks.add_task(indeed.start_applying, data.email, data.password, data.what, data.where)
-#
-#     return {
-#         'message': 'Added a new task.',
-#     }
-
-
 manager = ConnectionManager()
 
 
@@ -67,5 +57,6 @@ async def handle_automate(socket: WebSocket):
 
             driver = indeed.setup_webdriver()
             procedure = indeed.IndeedAutomationProcedure(driver)
+
             await procedure.start(what=what, where=where, email=email, password=password, get_2fa_code=get_2fa_code)
 

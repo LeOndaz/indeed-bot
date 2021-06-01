@@ -179,6 +179,21 @@ TWO_FACTOR_INPUT_LOCATOR = (
     'verification_input',
 )
 
+CONTACT_FORM_FIRST_NAME_LOCATOR = (
+    By.ID,
+    'input-firstName',
+)
+
+CONTACT_FORM_LAST_NAME_LOCATOR = (
+    By.ID,
+    'input-lastName',
+)
+
+CONTACT_FORM_CITY_LOCATOR = (
+    By.ID,
+    'input-location',
+)
+
 DatePosted = DatePostedLocators
 WithinDistance = WithinDistanceLocators
 
