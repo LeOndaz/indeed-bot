@@ -340,10 +340,10 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
                 switch_to_tab(self.driver, i)
 
-            switch_to_tab(driver, 0)
-            for handle in driver.window_handles:
-                if handle != driver.current_window_handle:
-                    driver.close()
+            switch_to_tab(self.driver, 0)
+            for handle in self.driver.window_handles:
+                if handle != self.driver.current_window_handle:
+                    self.driver.close()
 
 
 if __name__ == '__main__':
