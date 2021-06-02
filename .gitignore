@@ -133,6 +133,7 @@ dmypy.json
 .idea/
 # pytype static type analyzer
 .pytype/
+Beep Beep-win32-x64/
 
 # Cython debug symbols
 cython_debug/

@@ -38,10 +38,10 @@ from errors import (
 )
 
 logger = logging.getLogger(__file__)
-
-
-def check_file_existence(file_path):
-    return Path(file_path).resolve().exists()
+f_handler = logging.FileHandler('logs.log')
+f_handler.setLevel(logging.WARNING)
+f_format = logging.Formatter('[%(levelname)s]: %(asctime)s %(message)s')
+logger.addHandler(f_handler)
 
 
 def setup_webdriver():
@@ -153,7 +153,8 @@ def handle_current_step(driver: webdriver.Chrome):
         'resume': (next_step,),
         'work-experience': (next_step,),
         'documents': (next_step,),
-        'review': (next_step,)
+        'review': (next_step,),
+        'intervention': (next_step, ),
     }
     url_end = driver.current_url.split('/')[-1]
 
@@ -334,8 +335,8 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
             for i in range(1, total_tabs):
                 try:
                     apply_in(self.driver)
-                except (MissingInfoError, NoSuchElementException):
-                    pass
+                except Exception as e:
+                    logging.error(e)
 
                 switch_to_tab(self.driver, i)
 
