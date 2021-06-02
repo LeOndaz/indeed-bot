@@ -30,6 +30,7 @@ const useStyles = makeStyles((theme) => ({
 function App() {
     const {control, handleSubmit, reset} = useForm();
     const classes = useStyles();
+    let promptedBefore = false;
 
     useEffect(() => {
         document.title = 'Beep beep';
@@ -52,14 +53,15 @@ function App() {
 
         socket.onmessage = (evt) => {
             const data = JSON.parse(evt.data);
-
             if (data.event === 'code') {
-                const code = prompt('Enter the code you\'ve received.');
-                socket.send(JSON.stringify({
-                    data: {
-                        code,
-                    }
-                }));
+                while (!promptedBefore){
+                    const code = prompt('Enter the code you\'ve received.');
+                    socket.send(JSON.stringify({
+                        data: {
+                            code,
+                        }
+                    }));
+                }
             }
         }
     }
