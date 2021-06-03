@@ -56,7 +56,7 @@ def setup_webdriver():
     options.add_experimental_option('useAutomationExtension', False)
 
     # enable proxy-ing
-    options.add_argument('--proxy-server=209.127.191.180:9279')
+    # options.add_argument('--proxy-server=209.127.191.180:9279')
 
     # save profile data
     # options.add_argument(f"user-data-dir={PROFILE_PATH}")
@@ -106,8 +106,8 @@ def filters_manager(driver):
 def paginated_search_manager(driver: webdriver.Chrome, what, where):
     """
     1-Indexed.
-    :param location:
-    :param query:
+    :param what:
+    :param where:
     :param driver:
     :return:
     """
@@ -124,10 +124,8 @@ def paginated_search_manager(driver: webdriver.Chrome, what, where):
             qs['l'] = where
 
         qs = urlencode(qs)
-        print(qs)
         parsed_url[4] = qs
         new_url = urlunparse(parsed_url)
-        print(new_url)
 
         return driver.get(new_url)
 
@@ -237,6 +235,15 @@ class SiteAutomationProcedure:
         pass
 
 
+async def resolve_func(func):
+    if iscoroutinefunction(func):
+        code = await func()
+    else:
+        code = func()
+
+    return code
+
+
 class IndeedAutomationProcedure(SiteAutomationProcedure):
     def __init__(self, driver, *args, **kwargs):
         self.driver = driver
@@ -313,11 +320,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
         form_2fa = self.get_2fa_form()
         if form_2fa and get_2fa_code:
-            if iscoroutinefunction(get_2fa_code):
-                code = await get_2fa_code()
-            else:
-                code = get_2fa_code()
-
+            code = await resolve_func(get_2fa_code)
             self.on_code(form_2fa, code)
 
         self.job_search(what, where)
@@ -326,7 +329,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
         for current_page in range(1, total_tabs):
             navigate_to_page(current_page)
             self.filter()
-            job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS) # FIXME: Filters get removed?
+            job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS)  # FIXME: Filters get removed?
 
             for job_card in job_cards:
                 if job_card.get_property('tagName').lower() == 'a':
@@ -368,6 +371,7 @@ if __name__ == '__main__':
 
     assert all([args.email, args.password, args.what, args.where]), 'You didn\'t provide all the necessary fields.'
 
+
     def start_as_script():
         driver = setup_webdriver()
         procedure = IndeedAutomationProcedure(driver)
@@ -377,5 +381,6 @@ if __name__ == '__main__':
                                                 args.what,
                                                 args.where,
                                                 lambda: input('Enter the code you\'ll receive on your mail shortly: ')))
+
 
     start_as_script()
