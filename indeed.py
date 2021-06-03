@@ -1,7 +1,6 @@
 import argparse
 import logging
 import re
-from pathlib import Path
 from inspect import iscoroutinefunction
 from urllib.parse import parse_qs, urlparse, urlunparse, urlencode
 from selenium import webdriver
@@ -123,8 +122,9 @@ def paginated_search_manager(driver: webdriver.Chrome, what, where):
         if qs.get('location', None) is not None:
             qs['l'] = where
 
-        qs = urlencode(qs)
-        parsed_url[4] = qs
+        new_qs = {key: val[0] if isinstance(val, list) else val for key, val in qs.items()}
+        new_qs = urlencode(new_qs)
+        parsed_url[4] = new_qs
         new_url = urlunparse(parsed_url)
 
         return driver.get(new_url)
@@ -185,8 +185,11 @@ def apply_in(driver: webdriver.Chrome):
 
 def remove_job_alert_overlay(driver: webdriver.Chrome):
     driver.execute_script("""
-        document.getElementById('popover-background').remove();
-        document.getElementById('popover-foreground').remove();
+        const bg = document.getElementById('popover-background');
+        if (bg) bg.remove();
+        
+        const fg = document.getElementById('popover-foreground');
+        if (fg) fg.remove();
     """)
 
 
@@ -312,10 +315,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
         filter_by(WithinDistance.OF_100_MILES)
 
     def handle_overlays(self):
-        try:
-            remove_job_alert_overlay(self.driver)
-        except Exception:
-            pass
+        remove_job_alert_overlay(self.driver)
 
     async def start(self, email, password, what, where, get_2fa_code=None, *args, **kwargs):
         navigate_to_page = paginated_search_manager(self.driver, what, where)
@@ -336,6 +336,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
             navigate_to_page(current_page)
             self.handle_overlays()
             self.filter()
+
             job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS)  # FIXME: Filters get removed?
 
             for job_card in job_cards:
