@@ -311,6 +311,9 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
         filter_by = filters_manager(self.driver)
         filter_by(WithinDistance.OF_100_MILES)
 
+    def handle_overlays(self):
+        remove_job_alert_overlay(self.driver)
+
     async def start(self, email, password, what, where, get_2fa_code=None, *args, **kwargs):
         navigate_to_page = paginated_search_manager(self.driver, what, where)
         total_tabs = 16  # 15 per page + 1
@@ -328,6 +331,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
         for current_page in range(1, total_tabs):
             navigate_to_page(current_page)
+            self.handle_overlays()
             self.filter()
             job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS)  # FIXME: Filters get removed?
 
