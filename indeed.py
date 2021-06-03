@@ -312,7 +312,10 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
         filter_by(WithinDistance.OF_100_MILES)
 
     def handle_overlays(self):
-        remove_job_alert_overlay(self.driver)
+        try:
+            remove_job_alert_overlay(self.driver)
+        except Exception:
+            pass
 
     async def start(self, email, password, what, where, get_2fa_code=None, *args, **kwargs):
         navigate_to_page = paginated_search_manager(self.driver, what, where)
