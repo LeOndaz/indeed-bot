@@ -56,7 +56,7 @@ def setup_webdriver():
     options.add_experimental_option('useAutomationExtension', False)
 
     # enable proxy-ing
-    # options.add_argument('--proxy-server=209.127.191.180:9279')
+    options.add_argument('--proxy-server=209.127.191.180:9279')
 
     # save profile data
     # options.add_argument(f"user-data-dir={PROFILE_PATH}")
@@ -76,14 +76,14 @@ def open_in_new_tab(driver: webdriver.Chrome, url: str):
     driver.execute_script(f"window.open('{url}', '_blank')")
 
 
-def switch_to_tab(driver: webdriver.Chrome, tab_num):
+def switch_to_tab(driver: webdriver.Chrome, handle):
     """
     Switches to an active tab.
     :param driver: Driver to act on.
     :param tab_num: Tab number, 0-indexed.
     :return: None
     """
-    driver.switch_to.window(driver.window_handles[tab_num])
+    driver.switch_to.window(handle)
 
 
 def clear_input(input):
@@ -124,8 +124,10 @@ def paginated_search_manager(driver: webdriver.Chrome, what, where):
             qs['l'] = where
 
         qs = urlencode(qs)
+        print(qs)
         parsed_url[4] = qs
         new_url = urlunparse(parsed_url)
+        print(new_url)
 
         return driver.get(new_url)
 
@@ -154,7 +156,7 @@ def handle_current_step(driver: webdriver.Chrome):
         'work-experience': (next_step,),
         'documents': (next_step,),
         'review': (next_step,),
-        'intervention': (next_step, ),
+        'intervention': (next_step,),
     }
     url_end = driver.current_url.split('/')[-1]
 
@@ -190,18 +192,21 @@ def remove_job_alert_overlay(driver: webdriver.Chrome):
     """)
 
 
-def close_current_tab(driver: webdriver.Chrome):
-    driver.execute_script("""
-        window.close();
-    """)
-
-
 def get_many_with_possible_locators(driver, locators):
     for locator in locators:
         elements = driver.find_elements(*locator)
 
         if elements:
             return elements
+
+
+def close_all_but_first(driver):
+    first_handle = driver.window_handles[0]
+
+    for handle in driver.window_handles:
+        if handle != first_handle:
+            switch_to_tab(driver, handle)
+            driver.close()
 
 
 class SiteAutomationProcedure:
@@ -260,6 +265,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
             self.uses_2fa = True
         except NoSuchElementException:
             form = None
+            self.uses_2fa = False
 
         return form
 
@@ -301,7 +307,6 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
     async def start(self, email, password, what, where, get_2fa_code=None, *args, **kwargs):
         navigate_to_page = paginated_search_manager(self.driver, what, where)
         total_tabs = 16  # 15 per page + 1
-        current_page = 1
 
         self.navigate_to_login_page()
         self.login(email, password)
@@ -317,12 +322,11 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
         self.job_search(what, where)
         self.handle_recommending_different_region()
-        self.filter()
 
-        while current_page < total_tabs:
+        for current_page in range(1, total_tabs):
             navigate_to_page(current_page)
-            current_page += 1
-            job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS)
+            self.filter()
+            job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS) # FIXME: Filters get removed?
 
             for job_card in job_cards:
                 if job_card.get_property('tagName').lower() == 'a':
@@ -332,19 +336,24 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
                 open_in_new_tab(self.driver, href)
 
-            for i in range(1, total_tabs):
+            for handle in self.driver.window_handles:
+                if handle == self.driver.window_handles[0]:
+                    continue
+
+                switch_to_tab(self.driver, handle)
+
                 try:
                     apply_in(self.driver)
                 except Exception as e:
                     logging.error(e)
 
-                switch_to_tab(self.driver, i)
+                tabs_count = len(self.driver.window_handles)
 
-            switch_to_tab(self.driver, 0)
-            for i, handle in enumerate(self.driver.window_handles):
-                if handle != self.driver.current_window_handle:
-                    switch_to_tab(self.driver, i)
-                    self.driver.close()
+                current_handle_index = self.driver.window_handles.index(handle)
+                next_handle = self.driver.window_handles[current_handle_index - 1]
+                self.driver.close()
+                WebDriverWait(self.driver, 5).until(ec.number_of_windows_to_be(tabs_count - 1))
+                switch_to_tab(self.driver, next_handle)
 
 
 if __name__ == '__main__':
@@ -359,11 +368,14 @@ if __name__ == '__main__':
 
     assert all([args.email, args.password, args.what, args.where]), 'You didn\'t provide all the necessary fields.'
 
-    driver = setup_webdriver()
-    procedure = IndeedAutomationProcedure(driver)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(procedure.start(args.email,
-                                            args.password,
-                                            args.what,
-                                            args.where,
-                                            lambda: input('Enter the code you\'ll receive on your mail shortly: ')))
+    def start_as_script():
+        driver = setup_webdriver()
+        procedure = IndeedAutomationProcedure(driver)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(procedure.start(args.email,
+                                                args.password,
+                                                args.what,
+                                                args.where,
+                                                lambda: input('Enter the code you\'ll receive on your mail shortly: ')))
+
+    start_as_script()

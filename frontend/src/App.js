@@ -54,13 +54,16 @@ function App() {
         socket.onmessage = (evt) => {
             const data = JSON.parse(evt.data);
             if (data.event === 'code') {
-                while (!promptedBefore){
+                while (!promptedBefore) {
                     const code = prompt('Enter the code you\'ve received.');
-                    socket.send(JSON.stringify({
-                        data: {
-                            code,
-                        }
-                    }));
+                    if (code) {
+                        socket.send(JSON.stringify({
+                            data: {
+                                code,
+                            }
+                        }));
+                        promptedBefore = true;
+                    }
                 }
             }
         }
