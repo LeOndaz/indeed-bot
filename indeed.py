@@ -3,11 +3,12 @@ import logging
 import re
 from inspect import iscoroutinefunction
 from urllib.parse import parse_qs, urlparse, urlunparse, urlencode
+
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.support.wait import WebDriverWait
 
 from consts import (
     INDEED_LOGIN_URL,
@@ -55,7 +56,7 @@ def setup_webdriver():
     options.add_experimental_option('useAutomationExtension', False)
 
     # enable proxy-ing
-    # options.add_argument('--proxy-server=209.127.191.180:9279')
+    options.add_argument('--proxy-server=209.127.191.180:9279')
 
     # save profile data
     # options.add_argument(f"user-data-dir={PROFILE_PATH}")
@@ -132,35 +133,39 @@ def paginated_search_manager(driver: webdriver.Chrome, what, where):
     return switch_to
 
 
+def next_step(driver, ):
+    continue_btn = WebDriverWait(driver, 5, ).until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
+    continue_btn.click()
+
+
+def contact_info_handler(driver, ):
+    try:
+        first_name = driver.find_element(*CONTACT_FORM_FIRST_NAME_LOCATOR).get_attribute('value')
+        last_name = driver.find_element(*CONTACT_FORM_LAST_NAME_LOCATOR).get_attribute('value')
+
+        if all([first_name, last_name]):
+            return next_step(driver)
+
+    except NoSuchElementException:
+        raise MissingInfoError()
+
+
+url_handler_map = {
+    'resume': (next_step,),
+    'work-experience': (next_step,),
+    'contact-info': (contact_info_handler,),
+    'documents': (next_step,),
+    'intervention': (next_step,),
+    'review': (next_step,),
+}
+
+
 def handle_current_step(driver: webdriver.Chrome):
-    def next_step():
-        continue_btn = WebDriverWait(driver, 5).until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
-        continue_btn.click()
-
-    def contact_info_handler():
-        try:
-            first_name = driver.find_element(*CONTACT_FORM_FIRST_NAME_LOCATOR).get_attribute('value')
-            last_name = driver.find_element(*CONTACT_FORM_LAST_NAME_LOCATOR).get_attribute('value')
-
-            if all([first_name, last_name]):
-                return next_step()
-
-        except NoSuchElementException:
-            raise MissingInfoError()
-
-    url_handler_map = {
-        'contact-info': (contact_info_handler,),
-        'resume': (next_step,),
-        'work-experience': (next_step,),
-        'documents': (next_step,),
-        'review': (next_step,),
-        'intervention': (next_step,),
-    }
     url_end = driver.current_url.split('/')[-1]
 
     try:
         handler, *args = url_handler_map[url_end]
-        return handler(*args)
+        return handler(driver, *args)
 
     except KeyError:
         logging.warning('Can\'t handle current step. No sufficient info. Skipping.')
@@ -175,12 +180,14 @@ def apply_in(driver: webdriver.Chrome):
     text = stepper.text.strip()
     match = re.match(STEPPER_PATTERN, text)
 
-    if match:
-        count = int(match.group('count'))
-        logging.info(f'Found {count} steps.')
+    if not match:
+        return None
 
-        for _ in range(count + 1):  # review step is added
-            handle_current_step(driver)
+    count = int(match.group('count'))
+    logging.info(f'Found {count} steps.')
+
+    for _ in range(count + 1):  # review step is added
+        handle_current_step(driver)
 
 
 def remove_job_alert_overlay(driver: webdriver.Chrome):
@@ -247,6 +254,7 @@ async def resolve_func(func):
     return code
 
 
+# TemplateMethod
 class IndeedAutomationProcedure(SiteAutomationProcedure):
     def __init__(self, driver, *args, **kwargs):
         self.driver = driver
@@ -355,6 +363,8 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
 
                 try:
                     apply_in(self.driver)
+                except NoSuchElementException:
+                    logging.error('Must apply on company site.')
                 except Exception as e:
                     logging.error(e)
 
