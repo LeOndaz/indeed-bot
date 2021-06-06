@@ -168,7 +168,7 @@ def handle_current_step(driver: webdriver.Chrome):
         return handler(driver, *args)
 
     except KeyError:
-        logging.warning('Can\'t handle current step. No sufficient info. Skipping.')
+        logger.warning('Can\'t handle current step. No sufficient info. Skipping.')
         raise MissingInfoError()
 
 
@@ -184,7 +184,7 @@ def apply_in(driver: webdriver.Chrome):
         return None
 
     count = int(match.group('count'))
-    logging.info(f'Found {count} steps.')
+    logger.info(f'Found {count} steps.')
 
     for _ in range(count + 1):  # review step is added
         handle_current_step(driver)
@@ -302,7 +302,7 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
                 'a')
             invalid_location_anchor.click()
         except NoSuchElementException:
-            logging.info('No regional restrictions found.')
+            logger.info('No regional restrictions found.')
 
     def job_search(self, what, where):
         form = self.driver.find_element(*WHAT_WHERE_FORM_LOCATOR)
@@ -364,9 +364,9 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
                 try:
                     apply_in(self.driver)
                 except NoSuchElementException:
-                    logging.error('Must apply on company site.')
+                    logger.error('Must apply on company site.')
                 except Exception as e:
-                    logging.error(e)
+                    logger.error(e)
 
                 tabs_count = len(self.driver.window_handles)
 
