@@ -39,8 +39,9 @@ from errors import (
 
 logger = logging.getLogger(__file__)
 f_handler = logging.FileHandler('logs.log')
-f_handler.setLevel(logging.WARNING)
+f_handler.setLevel(logging.INFO)
 f_format = logging.Formatter('[%(levelname)s]: %(asctime)s %(message)s')
+f_handler.setFormatter(f_format)
 logger.addHandler(f_handler)
 
 
@@ -56,7 +57,7 @@ def setup_webdriver():
     options.add_experimental_option('useAutomationExtension', False)
 
     # enable proxy-ing
-    # options.add_argument('--proxy-server=209.127.191.180:9279')
+    options.add_argument('--proxy-server=209.127.191.180:9279')
 
     # save profile data
     # options.add_argument(f"user-data-dir={PROFILE_PATH}")
@@ -134,7 +135,7 @@ def paginated_search_manager(driver: webdriver.Chrome, what, where):
 
 
 def next_step(driver, ):
-    continue_btn = WebDriverWait(driver, 5, ).until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
+    continue_btn = WebDriverWait(driver, 5).until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
     continue_btn.click()
 
 
@@ -142,8 +143,13 @@ def contact_info_handler(driver, ):
     try:
         first_name = driver.find_element(*CONTACT_FORM_FIRST_NAME_LOCATOR).get_attribute('value')
         last_name = driver.find_element(*CONTACT_FORM_LAST_NAME_LOCATOR).get_attribute('value')
+        continue_btn = driver.find_element(*CONTINUE_BTN_LOCATOR)
+        x = continue_btn.is_enabled()
 
-        if all([first_name, last_name]):
+        if not continue_btn.is_enabled():
+            raise MissingInfoError()
+
+        if all([first_name, last_name, ]):
             return next_step(driver)
 
     except NoSuchElementException:
@@ -168,7 +174,7 @@ def handle_current_step(driver: webdriver.Chrome):
         return handler(driver, *args)
 
     except KeyError:
-        logger.warning('Can\'t handle current step. No sufficient info. Skipping.')
+        logger.error('Can\'t handle current step. No sufficient info. Skipping.')
         raise MissingInfoError()
 
 
@@ -181,10 +187,14 @@ def apply_in(driver: webdriver.Chrome):
     match = re.match(STEPPER_PATTERN, text)
 
     if not match:
+        logger.error(f'Strange error occurred during applying to: {driver.current_url}')
         return None
 
     count = int(match.group('count'))
     logger.info(f'Found {count} steps.')
+
+    if count > len(url_handler_map) - 1:  # remove review step from count.
+        raise MissingInfoError()
 
     for _ in range(count + 1):  # review step is added
         handle_current_step(driver)
@@ -280,10 +290,8 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
     def get_2fa_form(self):
         try:
             form = self.driver.find_element(*TWO_FACTOR_FORM_LOCATOR)
-            self.uses_2fa = True
         except NoSuchElementException:
             form = None
-            self.uses_2fa = False
 
         return form
 
@@ -362,11 +370,19 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
                 switch_to_tab(self.driver, handle)
 
                 try:
+                    logger.info('Trying to apply for a job.')
                     apply_in(self.driver)
+                    logger.info('Applied successfully to a job.')
+
                 except NoSuchElementException:
                     logger.error('Must apply on company site.')
+
+                except MissingInfoError:
+                    logger.info('Missing info required to fill in the job form.')
+
                 except Exception as e:
                     logger.error(e)
+                    raise
 
                 tabs_count = len(self.driver.window_handles)
 
