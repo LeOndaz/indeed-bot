@@ -434,7 +434,7 @@ if __name__ == '__main__':
 
 
     def start_as_script():
-        driver = setup_webdriver(proxy=('138.128.40.234', 6237))
+        driver = setup_webdriver()
         procedure = IndeedAutomationProcedure(driver)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(procedure.start(args.email,
