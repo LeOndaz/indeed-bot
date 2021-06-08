@@ -144,16 +144,6 @@ def next_step(driver):
     continue_btn = wait.until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
     continue_btn.click()
 
-    # continue_btn = WebDriverWait(
-    #     driver, 5,
-    # ).until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
-    #
-    # if continue_btn:
-    #     continue_btn.click()
-    # else:
-    #     print('wtf?')
-    #     logger.error('Didn\'t find a continue button.')
-
 
 def contact_info_handler(driver, ):
     try:
@@ -218,7 +208,7 @@ def apply_in(driver: webdriver.Chrome):
     for _ in range(count):
         current_step = driver.current_url.split('/')[-1]
         handle_step(driver, current_step)
-        time.sleep(2)
+        time.sleep(5)
 
 
 def remove_job_alert_overlay(driver: webdriver.Chrome):
@@ -434,7 +424,7 @@ if __name__ == '__main__':
 
 
     def start_as_script():
-        driver = setup_webdriver()
+        driver = setup_webdriver(proxy=('138.128.40.234', 6237))
         procedure = IndeedAutomationProcedure(driver)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(procedure.start(args.email,
