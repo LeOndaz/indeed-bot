@@ -1,11 +1,12 @@
 import argparse
 import logging
 import re
+import time
 from inspect import iscoroutinefunction
 from urllib.parse import parse_qs, urlparse, urlunparse, urlencode
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
@@ -35,6 +36,8 @@ from consts import (
 )
 from errors import (
     MissingInfoError,
+    MustApplyOnCompanySiteError,
+    NoStepperFoundError,
 )
 
 logger = logging.getLogger(__file__)
@@ -45,7 +48,7 @@ f_handler.setFormatter(f_format)
 logger.addHandler(f_handler)
 
 
-def setup_webdriver():
+def setup_webdriver(proxy=None):
     """
     Init a new webdriver changing user-agent every time..
     :return:
@@ -57,7 +60,9 @@ def setup_webdriver():
     options.add_experimental_option('useAutomationExtension', False)
 
     # enable proxy-ing
-    options.add_argument('--proxy-server=209.127.191.180:9279')
+    if proxy:
+        host, port = proxy
+        options.add_argument(f'--proxy-server={host}:{port}')
 
     # save profile data
     # options.add_argument(f"user-data-dir={PROFILE_PATH}")
@@ -134,9 +139,20 @@ def paginated_search_manager(driver: webdriver.Chrome, what, where):
     return switch_to
 
 
-def next_step(driver, ):
-    continue_btn = WebDriverWait(driver, 5).until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
+def next_step(driver):
+    wait = WebDriverWait(driver, 5)
+    continue_btn = wait.until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
     continue_btn.click()
+
+    # continue_btn = WebDriverWait(
+    #     driver, 5,
+    # ).until(ec.element_to_be_clickable(CONTINUE_BTN_LOCATOR))
+    #
+    # if continue_btn:
+    #     continue_btn.click()
+    # else:
+    #     print('wtf?')
+    #     logger.error('Didn\'t find a continue button.')
 
 
 def contact_info_handler(driver, ):
@@ -144,33 +160,29 @@ def contact_info_handler(driver, ):
         first_name = driver.find_element(*CONTACT_FORM_FIRST_NAME_LOCATOR).get_attribute('value')
         last_name = driver.find_element(*CONTACT_FORM_LAST_NAME_LOCATOR).get_attribute('value')
         continue_btn = driver.find_element(*CONTINUE_BTN_LOCATOR)
-        x = continue_btn.is_enabled()
 
-        if not continue_btn.is_enabled():
-            raise MissingInfoError()
-
-        if all([first_name, last_name, ]):
+        if all([first_name, last_name, continue_btn.is_enabled(), ]):
             return next_step(driver)
+
+        raise MissingInfoError()
 
     except NoSuchElementException:
         raise MissingInfoError()
 
 
 url_handler_map = {
-    'resume': (next_step,),
     'work-experience': (next_step,),
     'contact-info': (contact_info_handler,),
+    'resume': (next_step,),
     'documents': (next_step,),
     'intervention': (next_step,),
     'review': (next_step,),
 }
 
 
-def handle_current_step(driver: webdriver.Chrome):
-    url_end = driver.current_url.split('/')[-1]
-
+def handle_step(driver: webdriver.Chrome, step):
     try:
-        handler, *args = url_handler_map[url_end]
+        handler, *args = url_handler_map[step]
         return handler(driver, *args)
 
     except KeyError:
@@ -179,10 +191,17 @@ def handle_current_step(driver: webdriver.Chrome):
 
 
 def apply_in(driver: webdriver.Chrome):
-    apply_btn = driver.find_element(*APPLY_BTN_LOCATOR)
-    apply_btn.click()
+    try:
+        apply_btn = WebDriverWait(driver, 5).until(ec.element_to_be_clickable(APPLY_BTN_LOCATOR))
+        apply_btn.click()
+    except TimeoutException:
+        raise MustApplyOnCompanySiteError()
 
-    stepper = driver.find_element(*STEPPER_LOCATOR)
+    try:
+        stepper = driver.find_element(*STEPPER_LOCATOR)
+    except NoSuchElementException:
+        raise NoStepperFoundError()
+
     text = stepper.text.strip()
     match = re.match(STEPPER_PATTERN, text)
 
@@ -190,14 +209,16 @@ def apply_in(driver: webdriver.Chrome):
         logger.error(f'Strange error occurred during applying to: {driver.current_url}')
         return None
 
-    count = int(match.group('count'))
+    count = int(match.group('count')) + 1
     logger.info(f'Found {count} steps.')
 
-    if count > len(url_handler_map) - 1:  # remove review step from count.
+    if count > len(url_handler_map):
         raise MissingInfoError()
 
-    for _ in range(count + 1):  # review step is added
-        handle_current_step(driver)
+    for _ in range(count):
+        current_step = driver.current_url.split('/')[-1]
+        handle_step(driver, current_step)
+        time.sleep(2)
 
 
 def remove_job_alert_overlay(driver: webdriver.Chrome):
@@ -210,7 +231,7 @@ def remove_job_alert_overlay(driver: webdriver.Chrome):
     """)
 
 
-def get_many_with_possible_locators(driver, locators):
+def get_by_many_possible_locators(driver, locators):
     for locator in locators:
         elements = driver.find_elements(*locator)
 
@@ -227,6 +248,7 @@ def close_all_but_first(driver):
             driver.close()
 
 
+# Template method pattern
 class SiteAutomationProcedure:
     def __init__(self, *args, **kwargs):
         self.uses_2fa = None
@@ -331,7 +353,13 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
         filter_by(WithinDistance.OF_100_MILES)
 
     def handle_overlays(self):
-        remove_job_alert_overlay(self.driver)
+        self.driver.execute_script("""
+               const bg = document.getElementById('popover-background');
+               if (bg) bg.remove();
+
+               const fg = document.getElementById('popover-foreground');
+               if (fg) fg.remove();
+           """)
 
     async def start(self, email, password, what, where, get_2fa_code=None, *args, **kwargs):
         navigate_to_page = paginated_search_manager(self.driver, what, where)
@@ -349,11 +377,12 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
         self.handle_recommending_different_region()
 
         for current_page in range(1, total_tabs):
+
             navigate_to_page(current_page)
             self.handle_overlays()
             self.filter()
 
-            job_cards = get_many_with_possible_locators(self.driver, JOB_CARD_LOCATORS)  # FIXME: Filters get removed?
+            job_cards = get_by_many_possible_locators(self.driver, JOB_CARD_LOCATORS)
 
             for job_card in job_cards:
                 if job_card.get_property('tagName').lower() == 'a':
@@ -374,18 +403,16 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
                     apply_in(self.driver)
                     logger.info('Applied successfully to a job.')
 
-                except NoSuchElementException:
+                except MustApplyOnCompanySiteError:
                     logger.error('Must apply on company site.')
 
                 except MissingInfoError:
                     logger.info('Missing info required to fill in the job form.')
 
-                except Exception as e:
-                    logger.error(e)
-                    raise
+                except NoStepperFoundError:
+                    logger.error('Unable to apply to the current job.')
 
                 tabs_count = len(self.driver.window_handles)
-
                 current_handle_index = self.driver.window_handles.index(handle)
                 next_handle = self.driver.window_handles[current_handle_index - 1]
                 self.driver.close()
@@ -407,7 +434,7 @@ if __name__ == '__main__':
 
 
     def start_as_script():
-        driver = setup_webdriver()
+        driver = setup_webdriver(proxy=('138.128.40.234', 6237))
         procedure = IndeedAutomationProcedure(driver)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(procedure.start(args.email,
