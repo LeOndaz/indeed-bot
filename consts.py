@@ -2,8 +2,9 @@ import random
 import re
 from enum import Enum
 from pathlib import Path
-from selenium.webdriver.common.by import By
+
 from fake_useragent import UserAgent as BaseUserAgent
+from selenium.webdriver.common.by import By
 
 DEBUG = True
 PER_PAGE = 15
@@ -19,6 +20,8 @@ class UserAgent(BaseUserAgent):
     def random(self):
         return random.choice([self.chrome, self.edge, self.firefox])
 
+
+ua = UserAgent()
 
 LOGIN_FORM_LOCATOR = (
     By.ID,
