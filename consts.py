@@ -8,8 +8,8 @@ from selenium.webdriver.common.by import By
 
 DEBUG = True
 PER_PAGE = 15
-INDEED_URL = "https://indeed.com/"
-INDEED_LOGIN_URL = "https://indeed.com/account/login"
+INDEED_URL = "https://eg.indeed.com/"
+INDEED_LOGIN_URL = "https://eg.indeed.com/account/login"
 WEB_DRIVER_PATH = Path("chromedriver").resolve()
 STEPPER_PATTERN = re.compile("Application step [0-9]+ of (?P<count>[0-9]+)")
 
