@@ -19,6 +19,7 @@ class IndeedEGAutomationProcedure(SiteAutomationProcedure):
         :param password:
         :return:
         """
+        
 
     def get_2fa_code(self, *args, **kwargs):
         # handle taking the code from the user
