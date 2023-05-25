@@ -7,12 +7,11 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
 
-from consts import (
+from locators_us import (
     APPLY_BTN_LOCATOR,
     CONTACT_FORM_FIRST_NAME_LOCATOR,
     CONTACT_FORM_LAST_NAME_LOCATOR,
@@ -436,6 +435,9 @@ class IndeedAutomationProcedure(SiteAutomationProcedure):
                 )
                 switch_to_tab(self.driver, next_handle)
 
+class IndeedEgyptAutomationProcedure(IndeedAutomationProcedure):
+    def login(self, email , password):
+        pass
 
 if __name__ == "__main__":
     import asyncio
