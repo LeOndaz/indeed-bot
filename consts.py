@@ -7,12 +7,12 @@ from fake_useragent import UserAgent as BaseUserAgent
 
 DEBUG = True
 PER_PAGE = 15
-INDEED_URL = 'https://indeed.com/'
-INDEED_LOGIN_URL = 'https://indeed.com/account/login'
+INDEED_URL = "https://indeed.com/"
+INDEED_LOGIN_URL = "https://indeed.com/account/login"
 WEB_DRIVER_PATH = Path("chromedriver").resolve()
-STEPPER_PATTERN = re.compile('Application step [0-9]+ of (?P<count>[0-9]+)')
+STEPPER_PATTERN = re.compile("Application step [0-9]+ of (?P<count>[0-9]+)")
 
-PROFILE_PATH = f'{Path(__file__).resolve().parent}/Profile'
+PROFILE_PATH = f"{Path(__file__).resolve().parent}/Profile"
 
 
 class UserAgent(BaseUserAgent):
@@ -22,65 +22,56 @@ class UserAgent(BaseUserAgent):
 
 LOGIN_FORM_LOCATOR = (
     By.ID,
-    'loginform',
+    "loginform",
 )
 
 EMAIL_INPUT_LOCATOR = (
     By.ID,
-    'login-email-input',
+    "login-email-input",
 )
 
 PASSWORD_INPUT_LOCATOR = (
     By.ID,
-    'login-password-input',
+    "login-password-input",
 )
 
 LOGIN_BTN_LOCATOR = (
     By.ID,
-    'login-submit-button',
+    "login-submit-button",
 )
 
 WHAT_WHERE_FORM_LOCATOR = (
     By.ID,
-    'whatWhere',
+    "whatWhere",
 )
 
 WHAT_INPUT_LOCATOR = (
     By.ID,
-    'text-input-what',
+    "text-input-what",
 )
 
 WHERE_INPUT_LOCATOR = (
     By.ID,
-    'text-input-where',
+    "text-input-where",
 )
 
 FIND_BTN_LOCATOR = (
     By.TAG_NAME,
-    'button',
+    "button",
 )
 
-FILTERS_INPUT_LOCATOR = (
-    By.CLASS_NAME,
-    'filters'
-)
+FILTERS_INPUT_LOCATOR = (By.CLASS_NAME, "filters")
 
 
 class DatePostedLocators(Enum):
     BTN_LOCATOR = (
         By.ID,
-        'filter-dateposted',
+        "filter-dateposted",
     )
 
-    LAST_24_HOURS = (
-        By.XPATH,
-        "//a[@title='Last 24 Hours']"
-    )
+    LAST_24_HOURS = (By.XPATH, "//a[@title='Last 24 Hours']")
 
-    LAST_3_DAYS = (
-        By.XPATH,
-        "//a[@title='Last 3 days']"
-    )
+    LAST_3_DAYS = (By.XPATH, "//a[@title='Last 3 days']")
 
     LAST_7_DAYS = (
         By.XPATH,
@@ -93,7 +84,7 @@ class DatePostedLocators(Enum):
 class WithinDistanceLocators(Enum):
     BTN_LOCATOR = (
         By.ID,
-        'filter-distance',
+        "filter-distance",
     )
 
     EXACT_LOCATION_ONLY = (
@@ -132,10 +123,7 @@ class WithinDistanceLocators(Enum):
     )
 
 
-CAPTCHA_MESSAGE_LOCATOR = (
-    By.CLASS_NAME,
-    'pass-ErrorMessage'
-)
+CAPTCHA_MESSAGE_LOCATOR = (By.CLASS_NAME, "pass-ErrorMessage")
 
 JOB_CARD_LOCATORS = (
     (
@@ -145,57 +133,54 @@ JOB_CARD_LOCATORS = (
     (
         By.XPATH,
         '//*[contains(concat(" ", normalize-space(@class), " "), " jobsearch-SerpJobCard ")]',
-    )
+    ),
 )
 
 APPLY_BTN_LOCATOR = (
     By.ID,
-    'indeedApplyButton',
+    "indeedApplyButton",
 )
 
 RESUME_INPUT_LOCATOR = (
     By.CLASS_NAME,
-    'ia-Resume',
+    "ia-Resume",
 )
 
 CONTINUE_BTN_LOCATOR = (
     By.CLASS_NAME,
-    'ia-continueButton',
+    "ia-continueButton",
 )
 
 STEPPER_LOCATOR = (
     By.CLASS_NAME,
-    'ia-Navigation-steps',
+    "ia-Navigation-steps",
 )
 
 PAGINATION_LIST_LOCATOR = (
     By.CLASS_NAME,
-    'pagination-list',
+    "pagination-list",
 )
 
-TWO_FACTOR_FORM_LOCATOR = (
-    By.ID,
-    'two-factor-auth-form'
-)
+TWO_FACTOR_FORM_LOCATOR = (By.ID, "two-factor-auth-form")
 
 TWO_FACTOR_INPUT_LOCATOR = (
     By.ID,
-    'verification_input',
+    "verification_input",
 )
 
 CONTACT_FORM_FIRST_NAME_LOCATOR = (
     By.ID,
-    'input-firstName',
+    "input-firstName",
 )
 
 CONTACT_FORM_LAST_NAME_LOCATOR = (
     By.ID,
-    'input-lastName',
+    "input-lastName",
 )
 
 CONTACT_FORM_CITY_LOCATOR = (
     By.ID,
-    'input-location',
+    "input-location",
 )
 
 DatePosted = DatePostedLocators
