@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
@@ -63,7 +64,8 @@ def setup_webdriver(proxy=None):
     # save profile data
     # options.add_argument(f"user-data-dir={PROFILE_PATH}")
 
-    driver = webdriver.Chrome(executable_path=WEB_DRIVER_PATH, options=options)
+    service = webdriver.chrome.service.Service(executable_path="chromedriver")
+    driver = webdriver.Chrome(service=service, options=options)
     driver.maximize_window()
     driver.execute_script(
         "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
