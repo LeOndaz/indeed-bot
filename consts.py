@@ -25,7 +25,7 @@ ua = UserAgent()
 
 LOGIN_FORM_LOCATOR = (
     By.ID,
-    "loginform",
+    "emailform",
 )
 
 EMAIL_INPUT_LOCATOR = (
