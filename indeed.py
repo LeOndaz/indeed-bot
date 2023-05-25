@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from inspect import iscoroutinefunction
-from urllib.parse import parse_qs, urlparse, urlunparse, urlencode
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -12,33 +12,29 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
 
 from consts import (
+    APPLY_BTN_LOCATOR,
+    CONTACT_FORM_FIRST_NAME_LOCATOR,
+    CONTACT_FORM_LAST_NAME_LOCATOR,
+    CONTINUE_BTN_LOCATOR,
+    EMAIL_INPUT_LOCATOR,
+    FILTERS_INPUT_LOCATOR,
     INDEED_LOGIN_URL,
-    WEB_DRIVER_PATH,
+    JOB_CARD_LOCATORS,
     LOGIN_BTN_LOCATOR,
     LOGIN_FORM_LOCATOR,
     PASSWORD_INPUT_LOCATOR,
-    EMAIL_INPUT_LOCATOR,
-    WHAT_WHERE_FORM_LOCATOR,
-    WHERE_INPUT_LOCATOR,
-    WHAT_INPUT_LOCATOR,
-    FILTERS_INPUT_LOCATOR,
-    JOB_CARD_LOCATORS,
-    APPLY_BTN_LOCATOR,
-    CONTINUE_BTN_LOCATOR,
     STEPPER_LOCATOR,
+    STEPPER_PATTERN,
     TWO_FACTOR_FORM_LOCATOR,
     TWO_FACTOR_INPUT_LOCATOR,
-    CONTACT_FORM_FIRST_NAME_LOCATOR,
-    CONTACT_FORM_LAST_NAME_LOCATOR,
+    WEB_DRIVER_PATH,
+    WHAT_INPUT_LOCATOR,
+    WHAT_WHERE_FORM_LOCATOR,
+    WHERE_INPUT_LOCATOR,
     WithinDistance,
-    STEPPER_PATTERN,
     ua,
 )
-from errors import (
-    MissingInfoError,
-    MustApplyOnCompanySiteError,
-    NoStepperFoundError,
-)
+from errors import MissingInfoError, MustApplyOnCompanySiteError, NoStepperFoundError
 
 logger = logging.getLogger(__file__)
 f_handler = logging.FileHandler("logs.log")
@@ -234,7 +230,7 @@ def remove_job_alert_overlay(driver: webdriver.Chrome):
         """
         const bg = document.getElementById('popover-background');
         if (bg) bg.remove();
-        
+
         const fg = document.getElementById('popover-foreground');
         if (fg) fg.remove();
     """
@@ -454,7 +450,7 @@ if __name__ == "__main__":
     ), "You didn't provide all the necessary fields."
 
     def start_as_script():
-        driver = setup_webdriver(proxy=("138.128.40.234", 6237))
+        driver = setup_webdriver()
         procedure = IndeedAutomationProcedure(driver)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(
