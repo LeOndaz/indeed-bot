@@ -26,11 +26,16 @@ PASSWORD_FORM_LOCATOR = (
 )
 
 PASSWORD_INPUT_LOCATOR = (
-    By.ID,
-    'ifl-InputFormField-131'
+    By.XPATH,
+    '//input[contains(@id,"InputFormField")]'
 )
 
 LOGIN_BTN_LOCATOR = (
     By.TAG_NAME,
     'button'
+)
+
+CAPTCHA_CHECK_BOX_LOCATOR = (
+    By.ID,
+    'checkbox'
 )

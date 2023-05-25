@@ -217,7 +217,7 @@ class IndeedUSAutomationProcedure(SiteAutomationProcedure):
                 )
                 switch_to_tab(self.driver, next_handle)
 
-    def get_2fa_code(self, *args, get_2fa_code=None, **kwargs):
+    async def get_2fa_code(self, *args, get_2fa_code=None, **kwargs):
         return await resolve_func(get_2fa_code)
 
     def filter(self):
