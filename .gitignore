@@ -138,3 +138,6 @@ Beep Beep-win32-x64/
 # Cython debug symbols
 cython_debug/
 node_modules/
+
+chromedriver
+.DS_Store

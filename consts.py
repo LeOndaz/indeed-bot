@@ -1,10 +1,9 @@
+import random
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Tuple
-
 from selenium.webdriver.common.by import By
-from fake_useragent import UserAgent
+from fake_useragent import UserAgent as BaseUserAgent
 
 DEBUG = True
 PER_PAGE = 15
@@ -14,7 +13,12 @@ WEB_DRIVER_PATH = Path("chromedriver").resolve()
 STEPPER_PATTERN = re.compile('Application step [0-9]+ of (?P<count>[0-9]+)')
 
 PROFILE_PATH = f'{Path(__file__).resolve().parent}/Profile'
-ua = UserAgent()
+
+
+class UserAgent(BaseUserAgent):
+    def random(self):
+        return random.choice([self.chrome, self.edge, self.firefox])
+
 
 LOGIN_FORM_LOCATOR = (
     By.ID,
@@ -196,4 +200,3 @@ CONTACT_FORM_CITY_LOCATOR = (
 
 DatePosted = DatePostedLocators
 WithinDistance = WithinDistanceLocators
-
